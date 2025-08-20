@@ -5,7 +5,7 @@
 #
 # Usage (example):
 #   python main.py --datafile /path/to/corpus.txt --device cuda --total_steps 20000
-#   python3 -m main --datafile /path/to/file.txt --device cpu --total_steps 20000
+#   python3 -m main --datafile /shakespeare.txt --device cpu --total_steps 20000
 #
 # Requirements: torch. (If you have GPU, use a CUDA PyTorch build.)
 
@@ -46,7 +46,8 @@ class ByteTextDataset:
     def __init__(self, path, block_size):
         with open(path, "rb") as f:
             data = f.read()
-        self.data = torch.from_numpy(bytearray(data)).long()
+
+        self.data = torch.from_numpy(np.frombuffer(data, dtype=np.uint8)).long()
         self.vocab_size = 256
         self.block_size = block_size
 
