@@ -43,7 +43,7 @@ DEFAULTS = {
     "n_layers": 4,           # reduced from 6
     "n_heads": 4,            # reduced from 6
     "flag_dim": 32,          # reduced from 64
-    "max_snapshots": 3,      # reduced from 5
+    "max_snapshots": 2048,      # reduced from 5
     "snapshot_interval": 1000,   # steps between snapshotting (reduced from 2000)
     "anchors_per_snapshot": 512, # reduced from 2048
     "batch_size": 32,        # reduced from 64
