@@ -21,9 +21,9 @@ import torch.nn.functional as F
 # -----------------------
 DEFAULTS = {
     "vocab_size": 256,       # byte-level
-    "block_size": 128,       # context length
+    "block_size": 64,       # context length
     "d_model": 384,          # embedding dim
-    "n_layers": 6,
+    "n_layers": 4,
     "n_heads": 6,
     "flag_dim": 64,
     "max_snapshots": 5,
