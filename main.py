@@ -9,12 +9,29 @@
 #
 # Requirements: torch. (If you have GPU, use a CUDA PyTorch build.)
 
-import argparse, math, os, random, time, copy
+import argparse, math, os, random, time, copy, sys
 from collections import deque
 import numpy as np  # Added missing import
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+class TeeLogger:
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, 'w')
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+        self.log.flush()  # Ensure immediate write to file
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
+
+    def close(self):
+        self.log.close()
 
 # -----------------------
 # Config / defaults
@@ -225,6 +242,15 @@ def run_training(args):
     cfg = DEFAULTS.copy()
     cfg.update(vars(args))
 
+    # Set up logging
+    log_filename = f"training_log_{int(time.time())}.txt"
+    logger = TeeLogger(log_filename)
+    sys.stdout = logger
+    
+    print(f"Starting training at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Logging to: {log_filename}")
+    print(f"Config: {cfg}")
+
     device = torch.device(args.device if torch.cuda.is_available() or args.device=="cpu" else "cpu")
     print("Using device:", device)
 
@@ -413,6 +439,11 @@ def run_training(args):
         "snapshots": len(snap_bank.bank),
     }, args.out_model)
     print("Training finished. Saved:", args.out_model)
+    print(f"Training completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    # Close logger
+    sys.stdout = logger.terminal
+    logger.close()
 
 # -----------------------
 # CLI
