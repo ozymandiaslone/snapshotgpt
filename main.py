@@ -50,7 +50,8 @@ DEFAULTS = {
     "lr": 3e-4,
     "warmup_steps": 500,     # reduced from 1000
     "total_steps": 5000,     # reduced from 20000
-    "retro_prob": 0.5,       # probability of doing a retro KD step per step
+    "retro_prob": 0.8,       # probability of doing a retro KD step per step
+    "mixed_mode_prob": 1.0,  # probability of training in mixed mode (using checkpoint attention)
     "kd_tau": 2.0,
     "kd_weight": 0.7,
     "attn_entropy_reg": 0.0,
@@ -243,11 +244,11 @@ def run_training(args):
     cfg.update(vars(args))
 
     # Set up logging
-    log_filename = f"training_log_{int(time.time())}.txt"
+    log_filename = f"training_log_{args.experiment_name}_{int(time.time())}.txt"
     logger = TeeLogger(log_filename)
     sys.stdout = logger
     
-    print(f"Starting training at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Starting {args.experiment_name} experiment at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Logging to: {log_filename}")
     print(f"Config: {cfg}")
 
@@ -308,8 +309,18 @@ def run_training(args):
         xb, yb = ds.get_batch(cfg["batch_size"])
         xb = xb.to(device); yb = yb.to(device)
 
-        # current-mode (CE)
-        flag_vec = flag_table(torch.zeros(xb.size(0), dtype=torch.long, device=device))
+        # Current mode with potential mixed flag
+        do_mixed = (len(snap_bank.bank) > 0) and (random.random() < cfg["mixed_mode_prob"])
+        if do_mixed:
+            # Use checkpoint attention to get mixed flag
+            keys = snap_bank.list_keys(device)
+            embs = snap_bank.list_embs(device)
+            _, pooled_temp, _ = model(xb, torch.zeros(xb.size(0), cfg["flag_dim"], device=device))
+            flag_vec, _ = cp_att(pooled_temp, keys, embs, topk=cfg["topk"])
+        else:
+            # Use current flag (zero)
+            flag_vec = flag_table(torch.zeros(xb.size(0), dtype=torch.long, device=device))
+            
         logits, pooled, q = model(xb, flag_vec)  # logits: (B,T,V)
         # next-token CE: logits[:, :-1, :] vs targets[:, :-1]
         loss_cur = F.cross_entropy(logits.view(-1, logits.size(-1)), yb.view(-1))
@@ -457,8 +468,8 @@ if __name__ == "__main__":
     parser.add_argument("--anchors_per_snapshot", type=int, default=DEFAULTS["anchors_per_snapshot"])
     parser.add_argument("--max_snapshots", type=int, default=DEFAULTS["max_snapshots"])
     parser.add_argument("--batch_size", type=int, default=DEFAULTS["batch_size"])
-    parser.add_argument("--out_model", type=str, default="snapshot_gpt_final.pt")
+    parser.add_argument("--out_model", type=str, default="snapshot_gpt_always_mixed.pt")
+    parser.add_argument("--experiment_name", type=str, default="always_mixed", help="experiment identifier")
     args = parser.parse_args()
     run_training(args)
-
 
