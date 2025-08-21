@@ -50,7 +50,7 @@ DEFAULTS = {
     "lr": 3e-4,
     "warmup_steps": 500,     # reduced from 1000
     "total_steps": 5000,     # reduced from 20000
-    "retro_prob": 0.8,       # probability of doing a retro KD step per step
+    "retro_prob": 0.9,       # probability of doing a retro KD step per step
     "mixed_mode_prob": 1.0,  # probability of training in mixed mode (using checkpoint attention)
     "kd_tau": 2.0,
     "kd_weight": 0.7,
