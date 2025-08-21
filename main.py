@@ -11,6 +11,7 @@
 
 import argparse, math, os, random, time, copy
 from collections import deque
+import numpy as np  # Added missing import
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -84,6 +85,7 @@ class SimpleBlock(nn.Module):
 class SnapshotGPT(nn.Module):
     def __init__(self, vocab_size, block_size, d_model, n_layers, n_heads, flag_dim, n_out=None):
         super().__init__()
+        self.d_model = d_model
         self.token_emb = nn.Embedding(vocab_size, d_model)
         self.pos_emb = nn.Parameter(torch.zeros(1, block_size, d_model))
         self.blocks = nn.ModuleList([SimpleBlock(d_model, n_heads) for _ in range(n_layers)])
@@ -92,7 +94,9 @@ class SnapshotGPT(nn.Module):
         # flag projection (we add to token embeddings)
         self.flag_proj = nn.Linear(flag_dim, d_model)
         # query projection for checkpoint-attention diagnostic (pooled -> query)
-        self.q_proj = nn.Linear(d_model, d_model//2)
+        # Fixed: use consistent key dimension
+        self.key_dim = d_model // 2
+        self.q_proj = nn.Linear(d_model, self.key_dim)
 
     def forward(self, idx, flag_vec):
         # idx: (B,T) int tokens; flag_vec: (B, flag_dim)
@@ -105,7 +109,7 @@ class SnapshotGPT(nn.Module):
         x = self.ln_f(x)
         pooled = x.mean(dim=1)   # (B,d)
         logits = self.head(x)    # (B,T,vocab) - we will compute loss with shift
-        q = self.q_proj(pooled)  # (B, qdim)
+        q = self.q_proj(pooled)  # (B, key_dim)
         return logits, pooled, q
 
 # -----------------------
@@ -154,6 +158,7 @@ class SnapshotBank:
 class CheckpointAttention(nn.Module):
     def __init__(self, query_dim, key_dim, flag_dim):
         super().__init__()
+        # Fixed: ensure query_dim matches the actual query dimension from model
         self.q_proj = nn.Linear(query_dim, key_dim)
         self.beta_proj = nn.Linear(query_dim, 1)  # gating scalar
         self.fallback = nn.Parameter(torch.zeros(flag_dim))
@@ -234,7 +239,8 @@ def run_training(args):
     with torch.no_grad():
         flag_table.weight[0].zero_()  # current flag near-zero
 
-    cp_att = CheckpointAttention(query_dim=cfg["d_model"], key_dim=cfg["d_model"]//2, flag_dim=cfg["flag_dim"]).to(device)
+    # Fixed: use correct dimensions for checkpoint attention
+    cp_att = CheckpointAttention(query_dim=cfg["d_model"], key_dim=model.key_dim, flag_dim=cfg["flag_dim"]).to(device)
 
     opt = torch.optim.AdamW(list(model.parameters()) + list(flag_table.parameters()) + list(cp_att.parameters()), lr=cfg["lr"], weight_decay=1e-2)
 
@@ -255,15 +261,15 @@ def run_training(args):
         if len(anchors) == 0:
             xb, _ = ds.get_batch(min(128, cfg["batch_size"]))
             anchors = [xb[i:i+1].cpu() for i in range(min(128, xb.shape[0]))]
-        # compute key: average pooled over anchors
+        # Fixed: compute key using the projected query dimension, not raw pooled
         model.eval()
         with torch.no_grad():
-            pooled_list = []
+            q_list = []
             for a in anchors:
                 a = a.to(device)
-                _, pooled, _ = model(a, torch.zeros(1, cfg["flag_dim"], device=device))
-                pooled_list.append(pooled.cpu())
-            key_vec = torch.cat(pooled_list, dim=0).mean(dim=0).cpu()
+                _, pooled, q = model(a, torch.zeros(1, cfg["flag_dim"], device=device))
+                q_list.append(q.cpu())  # Use q instead of pooled
+            key_vec = torch.cat(q_list, dim=0).mean(dim=0).cpu()
         snap = snap_bank.add(model, emb_vec, key_vec, anchors)
         print(f"[snap] added {snap.id_str}; bank_size={len(snap_bank.bank)}")
 
