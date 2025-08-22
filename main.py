@@ -55,7 +55,7 @@ DEFAULTS = {
     "kd_tau": 2.0,
     "kd_weight": 0.7,
     "attn_entropy_reg": 0.0,
-    "topk": 2,               # top-k snapshots to evaluate per retro/inference
+    "topk": None,               # top-k snapshots to evaluate per retro/inference
 }
 
 # -----------------------
