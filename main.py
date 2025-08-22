@@ -43,18 +43,18 @@ DEFAULTS = {
     "n_layers": 4,           # reduced from 6
     "n_heads": 4,            # reduced from 6
     "flag_dim": 32,          # reduced from 64
-    "max_snapshots": 3,      # reduced from 5
+    "max_snapshots": 999999,      # reduced from 5
     "snapshot_interval": 1000,   # steps between snapshotting (reduced from 2000)
     "anchors_per_snapshot": 512, # reduced from 2048
     "batch_size": 32,        # reduced from 64
     "lr": 3e-4,
     "warmup_steps": 500,     # reduced from 1000
     "total_steps": 5000,     # reduced from 20000
-    "retro_prob": 0.5,       # probability of doing a retro KD step per step
+    "retro_prob": 0.1,       # probability of doing a retro KD step per step
     "kd_tau": 2.0,
     "kd_weight": 0.7,
     "attn_entropy_reg": 0.0,
-    "topk": 2,               # top-k snapshots to evaluate per retro/inference
+    "topk": None,               # top-k snapshots to evaluate per retro/inference
 }
 
 # -----------------------
