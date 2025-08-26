@@ -59,8 +59,8 @@ DEFAULTS = {
     "vocab_size": 256,
     "block_size": 128,
     "d_model": 256,
-    "n_layers": 3, # increase this
-    "n_heads": 3,  # and this
+    "n_layers": 3, 
+    "n_heads": 4,  # and this
     "flag_dim": 32,
     "batch_size": 32,
     "lr": 3e-4,
